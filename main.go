@@ -66,7 +66,6 @@ func main() {
 
 		for i, p := range problems {
 			if p.ID == id {
-				// Update fields
 				problem.ID = id
 				problem.CreatedTime = p.CreatedTime
 				problem.UpdatedTime = time.Now()
@@ -75,6 +74,21 @@ func main() {
 			}
 		}
 
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Problem not found"})
+	})
+
+	//delete problem
+	app.Delete("/api/problems/:id", func(c *fiber.Ctx) error {
+		id, err := c.ParamsInt("id")
+		if err != nil || id <= 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+		}
+		for i, p := range problems {
+			if p.ID == id {
+				problems = append(problems[:i], problems[i+1:]...)
+				return c.SendStatus(fiber.StatusNoContent)
+			}
+		}
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Problem not found"})
 	})
 

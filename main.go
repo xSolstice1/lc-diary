@@ -27,6 +27,11 @@ func main() {
 
 	problems := []Problem{}
 
+	//fetch problem
+	app.Get("/api/problems", func(c *fiber.Ctx) error {
+		return c.JSON(problems)
+	})
+
 	//post problem
 	app.Post("/api/problems", func(c *fiber.Ctx) error {
 		problem := &Problem{}
@@ -40,9 +45,37 @@ func main() {
 		}
 
 		problem.ID = len(problems) + 1
+		problem.CreatedTime = time.Now()
+		problem.UpdatedTime = time.Now()
 		problems = append(problems, *problem)
 
 		return c.Status(201).JSON(problem)
+	})
+
+	//update problem
+	app.Put("/api/problems/:id", func(c *fiber.Ctx) error {
+		id, err := c.ParamsInt("id")
+		if err != nil || id <= 0 {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
+		}
+
+		problem := new(Problem)
+		if err := c.BodyParser(problem); err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+		}
+
+		for i, p := range problems {
+			if p.ID == id {
+				// Update fields
+				problem.ID = id
+				problem.CreatedTime = p.CreatedTime
+				problem.UpdatedTime = time.Now()
+				problems[i] = *problem
+				return c.JSON(problem)
+			}
+		}
+
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Problem not found"})
 	})
 
 	log.Fatal(app.Listen(":4000"))

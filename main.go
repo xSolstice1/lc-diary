@@ -10,6 +10,7 @@ import (
 
 type Problem struct {
 	ID          int       `json:"id"`
+	LCNumber    int       `json:"lc_number"`
 	Title       string    `json:"title"`
 	Tags        []string  `json:"tags"`
 	Difficulty  string    `json:"difficulty"`
@@ -24,8 +25,24 @@ func main() {
 	app := fiber.New()
 	fmt.Println("hello")
 
-	app.Get("/", func(c *fiber.Ctx) error {
-		return c.Status(200).JSON(fiber.Map{"msg": "hello world"})
+	problems := []Problem{}
+
+	//post problem
+	app.Post("/api/problems", func(c *fiber.Ctx) error {
+		problem := &Problem{}
+
+		if err := c.BodyParser(problem); err != nil {
+			return err
+		}
+
+		if problem.Title == "" {
+			return c.Status(400).JSON(fiber.Map{"error": "Problem Title is required!"})
+		}
+
+		problem.ID = len(problems) + 1
+		problems = append(problems, *problem)
+
+		return c.Status(201).JSON(problem)
 	})
 
 	log.Fatal(app.Listen(":4000"))

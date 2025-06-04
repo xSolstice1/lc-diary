@@ -40,7 +40,7 @@ Track your problem-solving progress, organize problems by tags and difficulty, a
 1. **Clone the repository**
 
    ```bash
-   git clone https://github.com/yourusername/leetcode-diary.git
+   git clone https://github.com/xsolstice1/lc-diary.git
    cd leetcode-diary
 
   

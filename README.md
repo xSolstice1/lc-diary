@@ -3,6 +3,10 @@
 A personal LeetCode problem tracker and diary built with React and Chakra UI.  
 Track your problem-solving progress, organize problems by tags and difficulty, and keep notes and solutions handy — all in one place.
 
+![Screenshot 1](assets/ss1.png)
+
+![Screenshot 2](assets/ss2.png)
+
 ---
 
 ## Features

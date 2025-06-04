@@ -9,6 +9,12 @@ import {
   Input,
   InputGroup,
   InputLeftElement,
+  Checkbox,
+  CheckboxGroup,
+  Heading,
+  Divider,
+  Wrap,
+  WrapItem,
 } from "@chakra-ui/react";
 import { FaSearch } from "react-icons/fa";
 import Navbar from "../components/Navbar";
@@ -17,6 +23,7 @@ import ProblemForm from "../components/ProblemForm";
 import type { Problem } from "../types/Problems";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
+const DIFFICULTIES = ["Easy", "Medium", "Hard"];
 
 export default function Home() {
   const [problems, setProblems] = useState<Problem[]>([]);
@@ -26,17 +33,29 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
+  const [availableTags, setAvailableTags] = useState<string[]>([]);
 
+  // Fetch Problems from API
   const fetchProblems = async () => {
     setLoading(true);
     setError(null);
     try {
       const res = await fetch(`${API_BASE}/problems`);
-      if (!res.ok)
-        throw new Error(`Error fetching problems: ${res.statusText}`);
-      const data = await res.json();
-      setProblems(Array.isArray(data) ? data : []);
-      setFilteredProblems(Array.isArray(data) ? data : []);
+      if (!res.ok) throw new Error(`Error: ${res.statusText}`);
+      const data: Problem[] = await res.json();
+
+      const validProblems = Array.isArray(data) ? data : [];
+      setProblems(validProblems);
+      setFilteredProblems(validProblems);
+
+      // Extract unique tags
+      const tagSet = new Set<string>();
+      validProblems.forEach((problem) =>
+        problem.tags?.forEach((tag) => tagSet.add(tag))
+      );
+      setAvailableTags([...tagSet]);
     } catch (err: any) {
       setError(err.message || "Unknown error");
     } finally {
@@ -44,25 +63,34 @@ export default function Home() {
     }
   };
 
+  // Filter logic
+  useEffect(() => {
+    const lowerSearch = searchTerm.toLowerCase();
+
+    const filtered = problems.filter((p) => {
+      const matchesSearch =
+        p.title.toLowerCase().includes(lowerSearch) ||
+        p.lcnumber.toLowerCase().includes(lowerSearch);
+
+      const matchesTags =
+        selectedTags.length === 0 ||
+        selectedTags.some((tag) => p.tags?.includes(tag));
+
+      const matchesDifficulty =
+        selectedDifficulties.length === 0 ||
+        selectedDifficulties.includes(p.difficulty);
+
+      return matchesSearch && matchesTags && matchesDifficulty;
+    });
+
+    setFilteredProblems(filtered);
+  }, [searchTerm, selectedTags, selectedDifficulties, problems]);
+
   useEffect(() => {
     fetchProblems();
   }, []);
 
-  useEffect(() => {
-    if (!searchTerm.trim()) {
-      setFilteredProblems(problems);
-      return;
-    }
-    const lowerSearch = searchTerm.toLowerCase();
-    setFilteredProblems(
-      problems.filter(
-        (p) =>
-          p.title.toLowerCase().includes(lowerSearch) ||
-          p.lcnumber.toLowerCase().includes(lowerSearch)
-      )
-    );
-  }, [searchTerm, problems]);
-
+  // Submit new/edit problem
   const handleSubmit = async (
     data: Omit<Problem, "id" | "created_time" | "updated_time">,
     id?: string
@@ -75,10 +103,7 @@ export default function Home() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      if (!res.ok)
-        throw new Error(
-          `Failed to ${id ? "update" : "create"} problem: ${res.statusText}`
-        );
+      if (!res.ok) throw new Error("Problem save failed.");
       setShowForm(false);
       setEditing(null);
       fetchProblems();
@@ -87,25 +112,30 @@ export default function Home() {
     }
   };
 
+  // Delete problem
   const handleDelete = async (id: string) => {
     try {
       const res = await fetch(`${API_BASE}/problems/${id}`, {
         method: "DELETE",
       });
-      if (!res.ok)
-        throw new Error(`Failed to delete problem: ${res.statusText}`);
+      if (!res.ok) throw new Error(`Delete failed`);
       fetchProblems();
     } catch (err: any) {
-      alert(err.message || "Unknown error occurred");
+      alert(err.message || "Unknown error");
     }
   };
 
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setSelectedTags([]);
+    setSelectedDifficulties([]);
+  };
+
   return (
-    <Stack>
+    <Stack spacing={6}>
       <Navbar />
-      <Container>
+      <Container maxW="container.md" py={6}>
         <Button
-          mb={4}
           colorScheme="teal"
           onClick={() => {
             setShowForm(true);
@@ -116,7 +146,7 @@ export default function Home() {
         </Button>
 
         {showForm && (
-          <Box mb={6}>
+          <Box mt={4}>
             <ProblemForm
               onSubmit={handleSubmit}
               initialData={editing || undefined}
@@ -129,15 +159,61 @@ export default function Home() {
         )}
 
         {!showForm && (
-          <InputGroup mb={4}>
-            <InputLeftElement pointerEvents="none" children={<FaSearch color="gray.300" />} />
-            <Input
-              placeholder="Search by title or LeetCode number"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </InputGroup>
+          <>
+            <InputGroup mt={4}>
+              <InputLeftElement pointerEvents="none">
+                <FaSearch color="gray.300" />
+              </InputLeftElement>
+              <Input
+                placeholder="Search by title or LC number"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </InputGroup>
+
+            <Box mt={4}>
+              <Heading size="sm" mb={2}>Filter by Tags</Heading>
+              <CheckboxGroup
+                colorScheme="teal"
+                value={selectedTags}
+                onChange={(vals) => setSelectedTags(vals as string[])}
+              >
+                <Wrap>
+                  {availableTags.map((tag) => (
+                    <WrapItem key={tag}>
+                      <Checkbox value={tag}>{tag}</Checkbox>
+                    </WrapItem>
+                  ))}
+                </Wrap>
+              </CheckboxGroup>
+            </Box>
+
+            <Box mt={4}>
+              <Heading size="sm" mb={2}>Filter by Difficulty</Heading>
+              <CheckboxGroup
+                colorScheme="orange"
+                value={selectedDifficulties}
+                onChange={(vals) => setSelectedDifficulties(vals as string[])}
+              >
+                <Stack direction="row">
+                  {DIFFICULTIES.map((d) => (
+                    <Checkbox key={d} value={d}>
+                      {d}
+                    </Checkbox>
+                  ))}
+                </Stack>
+              </CheckboxGroup>
+            </Box>
+
+            {(searchTerm || selectedTags.length || selectedDifficulties.length) > 0 && (
+              <Button mt={3} size="sm" variant="outline" onClick={handleResetFilters}>
+                Reset Filters
+              </Button>
+            )}
+          </>
         )}
+
+        <Divider my={6} />
 
         {loading && (
           <Stack align="center" py={10}>
@@ -146,13 +222,13 @@ export default function Home() {
         )}
 
         {error && (
-          <Text color="red.500" mb={4}>
+          <Text color="red.500" mt={4}>
             {error}
           </Text>
         )}
 
         {!loading && !error && !showForm && (
-          <Stack spacing={4}>
+          <Stack spacing={4} mt={4}>
             {filteredProblems.map((problem) => (
               <ProblemCard
                 key={problem.id}
@@ -164,6 +240,9 @@ export default function Home() {
                 onDelete={handleDelete}
               />
             ))}
+            {filteredProblems.length === 0 && (
+              <Text>No problems match the selected filters.</Text>
+            )}
           </Stack>
         )}
       </Container>

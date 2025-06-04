@@ -31,8 +31,6 @@ type Problem struct {
 var collection *mongo.Collection
 
 func main() {
-	fmt.Println("hello world")
-
 	err := godotenv.Load(".env")
 	if err != nil {
 		log.Fatal("Error loading env file!", err)

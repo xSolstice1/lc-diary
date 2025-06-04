@@ -1,88 +1,145 @@
-import { Box, Badge, Button, Flex, Text } from "@chakra-ui/react";
-import { FaCheckCircle } from "react-icons/fa";  // react-icons FaCheckCircle
+import {
+  Box,
+  Accordion,
+  AccordionItem,
+  AccordionButton,
+  AccordionPanel,
+  AccordionIcon,
+  Stack,
+  Button,
+  Text,
+  Wrap,
+  WrapItem,
+  Tag,
+  Flex,
+} from "@chakra-ui/react";
+import { FaCheckCircle } from "react-icons/fa";
 import type { Problem } from "../types/Problems";
 
-interface Props {
+interface ProblemCardProps {
   problem: Problem;
   onEdit: (problem: Problem) => void;
   onDelete: (id: string) => void;
 }
 
-export default function ProblemCard({ problem, onEdit, onDelete }: Props) {
+export default function ProblemCard({
+  problem,
+  onEdit,
+  onDelete,
+}: ProblemCardProps) {
   return (
-    <Box borderWidth="1px" borderRadius="lg" p={4} boxShadow="sm">
-      <Flex justify="space-between" align="center" mb={2}>
-        <Box>
-          <Text fontWeight="bold">{problem.title} (#{problem.lcnumber})</Text>
-          <Badge
-            colorScheme={
-              problem.difficulty === "Easy"
-                ? "green"
-                : problem.difficulty === "Medium"
-                ? "yellow"
-                : "red"
-            }
-          >
-            {problem.difficulty}
-          </Badge>
+    <Box borderWidth="1px" borderRadius="md" p={4} boxShadow="sm">
+      <Flex align="center" mb={1}>
+        <Box fontWeight="bold" fontSize="lg" flex="1">
+          {problem.title}
         </Box>
-
-        {/* Big green tick if completed */}
         {problem.completed && (
-          <Box
-            as={FaCheckCircle}
+          <FaCheckCircle
             color="green"
-            fontSize="2rem"
+            size={24}
+            style={{ marginLeft: 8 }}
             aria-label="Completed"
-            title="Completed"
           />
         )}
       </Flex>
 
-      {/* Solution */}
-      {problem.solution && (
-        <Box mb={2}>
-          <Text fontWeight="semibold">Solution:</Text>
-          <Text whiteSpace="pre-wrap" fontSize="sm">
-            {problem.solution}
-          </Text>
-        </Box>
-      )}
+      <Box color="gray.500" mb={1}>
+        LeetCode #{problem.lcnumber}
+      </Box>
 
-      {/* Notes */}
-      {problem.notes && (
-        <Box mb={2}>
-          <Text fontWeight="semibold">Notes:</Text>
-          <Text whiteSpace="pre-wrap" fontSize="sm" color="gray.600">
-            {problem.notes}
-          </Text>
-        </Box>
-      )}
-
-      {/* Tags */}
-      {problem.tags.length > 0 && (
-        <Box>
-          <Text fontWeight="semibold" mb={1}>
-            Tags:
-          </Text>
-          <Flex gap={2} wrap="wrap">
-            {problem.tags.map((tag, idx) => (
-              <Badge key={idx} colorScheme="blue">
-                {tag}
-              </Badge>
+      <Box mb={3}>
+        <Wrap spacing={2} align="center">
+          {problem.tags &&
+            problem.tags.length > 0 &&
+            problem.tags.map((tag) => (
+              <WrapItem key={tag}>
+                <Tag size="sm" variant="subtle" colorScheme="blue">
+                  {tag}
+                </Tag>
+              </WrapItem>
             ))}
-          </Flex>
-        </Box>
-      )}
+          {problem.difficulty && (
+            <WrapItem>
+              <Tag
+                size="sm"
+                variant="solid"
+                colorScheme={
+                  problem.difficulty.toLowerCase() === "easy"
+                    ? "green"
+                    : problem.difficulty.toLowerCase() === "medium"
+                    ? "yellow"
+                    : "red"
+                }
+              >
+                {problem.difficulty}
+              </Tag>
+            </WrapItem>
+          )}
+        </Wrap>
+      </Box>
 
-      <Flex gap={2} mt={4}>
+      <Accordion allowMultiple>
+        <AccordionItem>
+          <h2>
+            <AccordionButton>
+              <Box flex="1" textAlign="left">
+                Solution
+              </Box>
+              <AccordionIcon />
+            </AccordionButton>
+          </h2>
+          <AccordionPanel
+            pb={4}
+            whiteSpace="pre-wrap"
+            fontFamily="monospace"
+            bg="gray.800"
+            color="white"
+            p={4}
+            borderRadius="md"
+            overflowX="auto"
+            fontSize="sm"
+          >
+            {problem.solution || "No solution provided."}
+          </AccordionPanel>
+        </AccordionItem>
+
+        <AccordionItem>
+          <h2>
+            <AccordionButton>
+              <Box flex="1" textAlign="left">
+                Notes
+              </Box>
+              <AccordionIcon />
+            </AccordionButton>
+          </h2>
+          <AccordionPanel
+            pb={4}
+            whiteSpace="pre-wrap"
+            fontFamily="monospace"
+            bg="gray.800"
+            color="white"
+            p={4}
+            borderRadius="md"
+            overflowX="auto"
+            fontSize="sm"
+          >
+            {problem.notes || "No notes provided."}
+          </AccordionPanel>
+        </AccordionItem>
+      </Accordion>
+
+      <Stack direction="row" spacing={2} mt={4}>
         <Button size="sm" onClick={() => onEdit(problem)}>
           Edit
         </Button>
-        <Button size="sm" colorScheme="red" onClick={() => onDelete(problem.id)}>
+        <Button
+          size="sm"
+          colorScheme="red"
+          onClick={() => onDelete(problem.id)}
+        >
           Delete
         </Button>
-      </Flex>
+      </Stack>
     </Box>
   );
 }

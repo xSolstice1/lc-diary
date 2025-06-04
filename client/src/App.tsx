@@ -3,7 +3,7 @@ import Home from "./pages";
 
 function App() {
   return (
-    <Stack h="100vh">
+    <Stack minH='100vh'>
       <Home />
     </Stack>
   );

@@ -49,7 +49,6 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    // Filter problems when searchTerm changes
     if (!searchTerm.trim()) {
       setFilteredProblems(problems);
       return;
@@ -102,9 +101,9 @@ export default function Home() {
   };
 
   return (
-    <Stack minH="100vh">
+    <Stack>
       <Navbar />
-      <Container maxW="container.md" py={6}>
+      <Container>
         <Button
           mb={4}
           colorScheme="teal"

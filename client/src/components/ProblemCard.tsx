@@ -7,7 +7,6 @@ import {
   AccordionIcon,
   Stack,
   Button,
-  Text,
   Wrap,
   WrapItem,
   Tag,

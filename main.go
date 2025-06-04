@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -17,7 +18,7 @@ import (
 
 type Problem struct {
 	ID          primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
-	LCNumber    int                `json:"lc_number"`
+	LCNumber    string             `json:"lcnumber"`
 	Title       string             `json:"title"`
 	Tags        []string           `json:"tags"`
 	Difficulty  string             `json:"difficulty"`
@@ -57,6 +58,12 @@ func main() {
 	collection = client.Database("golang_db").Collection("problems")
 
 	app := fiber.New()
+
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: "http://localhost:5173",
+		AllowMethods: "GET,POST,PATCH,DELETE,OPTIONS",
+		AllowHeaders: "Content-Type, Accept",
+	}))
 
 	app.Get("/api/problems", getProblems)
 	app.Post("/api/problems", createProblem)

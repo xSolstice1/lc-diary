@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useContext } from "react";
 import {
   Box,
   Stack,
@@ -21,11 +21,14 @@ import Navbar from "../components/Navbar";
 import ProblemCard from "../components/ProblemCard";
 import ProblemForm from "../components/ProblemForm";
 import type { Problem } from "../types/Problems";
+import { AuthContext } from "../auth/AuthContext";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const DIFFICULTIES = ["Easy", "Medium", "Hard"];
 
 export default function Home() {
+  const { token } = useContext(AuthContext);
+
   const [problems, setProblems] = useState<Problem[]>([]);
   const [filteredProblems, setFilteredProblems] = useState<Problem[]>([]);
   const [editing, setEditing] = useState<Problem | null>(null);
@@ -37,20 +40,45 @@ export default function Home() {
   const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
   const [availableTags, setAvailableTags] = useState<string[]>([]);
 
+  const getAuthHeaders = () => {
+    return {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+  };
+
+  const handleResetFilters = () => {
+    setSearchTerm("");
+    setSelectedTags([]);
+    setSelectedDifficulties([]);
+  };
+
+  useEffect(() => {
+    if (token) {
+      fetchProblems();
+    } else {
+      setProblems([]);
+      setFilteredProblems([]);
+    }
+  }, [token]);
+
   // Fetch Problems from API
   const fetchProblems = async () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${API_BASE}/problems`);
+      const res = await fetch(`${API_BASE}/problems`, {
+        headers: getAuthHeaders(),
+      });
+
       if (!res.ok) throw new Error(`Error: ${res.statusText}`);
+
       const data: Problem[] = await res.json();
 
       const validProblems = Array.isArray(data) ? data : [];
       setProblems(validProblems);
       setFilteredProblems(validProblems);
 
-      // Extract unique tags
       const tagSet = new Set<string>();
       validProblems.forEach((problem) =>
         problem.tags?.forEach((tag) => tagSet.add(tag))
@@ -100,7 +128,7 @@ export default function Home() {
       const url = id ? `${API_BASE}/problems/${id}` : `${API_BASE}/problems`;
       const res = await fetch(url, {
         method,
-        headers: { "Content-Type": "application/json" },
+        headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
       if (!res.ok) throw new Error("Problem save failed.");
@@ -117,18 +145,13 @@ export default function Home() {
     try {
       const res = await fetch(`${API_BASE}/problems/${id}`, {
         method: "DELETE",
+        headers: getAuthHeaders(),
       });
       if (!res.ok) throw new Error(`Delete failed`);
       fetchProblems();
     } catch (err: any) {
       alert(err.message || "Unknown error");
     }
-  };
-
-  const handleResetFilters = () => {
-    setSearchTerm("");
-    setSelectedTags([]);
-    setSelectedDifficulties([]);
   };
 
   return (
@@ -172,7 +195,9 @@ export default function Home() {
             </InputGroup>
 
             <Box mt={4}>
-              <Heading size="sm" mb={2}>Filter by Tags</Heading>
+              <Heading size="sm" mb={2}>
+                Filter by Tags
+              </Heading>
               <CheckboxGroup
                 colorScheme="teal"
                 value={selectedTags}
@@ -189,7 +214,9 @@ export default function Home() {
             </Box>
 
             <Box mt={4}>
-              <Heading size="sm" mb={2}>Filter by Difficulty</Heading>
+              <Heading size="sm" mb={2}>
+                Filter by Difficulty
+              </Heading>
               <CheckboxGroup
                 colorScheme="orange"
                 value={selectedDifficulties}
@@ -205,8 +232,15 @@ export default function Home() {
               </CheckboxGroup>
             </Box>
 
-            {(!!searchTerm || selectedTags.length > 0 || selectedDifficulties.length > 0) && (
-              <Button mt={3} size="sm" variant="outline" onClick={handleResetFilters}>
+            {(!!searchTerm ||
+              selectedTags.length > 0 ||
+              selectedDifficulties.length > 0) && (
+              <Button
+                mt={3}
+                size="sm"
+                variant="outline"
+                onClick={handleResetFilters}
+              >
                 Reset Filters
               </Button>
             )}

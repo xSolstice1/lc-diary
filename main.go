@@ -5,19 +5,29 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"golang.org/x/crypto/bcrypt"
 )
+
+type User struct {
+	ID       primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
+	Username string             `bson:"username" json:"username"`
+	Password string             `bson:"password,omitempty" json:"password"`
+}
 
 type Problem struct {
 	ID          primitive.ObjectID `json:"id,omitempty" bson:"_id,omitempty"`
+	UserID      primitive.ObjectID `json:"user_id,omitempty" bson:"user_id,omitempty"`
 	LCNumber    string             `json:"lcnumber"`
 	Title       string             `json:"title"`
 	Tags        []string           `json:"tags"`
@@ -30,6 +40,10 @@ type Problem struct {
 }
 
 var collection *mongo.Collection
+var collectionUser *mongo.Collection
+var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
+
+const GuestUserIDHex = "000000000000000000000000"
 
 func main() {
 	err := godotenv.Load(".env")
@@ -56,19 +70,23 @@ func main() {
 	fmt.Println("Connection tested")
 
 	collection = client.Database("golang_db").Collection("problems")
+	collectionUser = client.Database("golang_db").Collection("users")
 
 	app := fiber.New()
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "http://localhost:5173",
 		AllowMethods: "GET,POST,PATCH,DELETE,OPTIONS",
-		AllowHeaders: "Content-Type, Accept",
+		AllowHeaders: "Content-Type, Accept, Authorization",
 	}))
 
-	app.Get("/api/problems", getProblems)
-	app.Post("/api/problems", createProblem)
-	app.Patch("/api/problems/:id", updateProblem)
-	app.Delete("/api/problems/:id", deleteProblem)
+	problemsGroup := app.Group("/api/problems", jwtMiddleware)
+	problemsGroup.Get("/", getProblems)
+	problemsGroup.Post("/", createProblem)
+	problemsGroup.Patch("/:id", updateProblem)
+	problemsGroup.Delete("/:id", deleteProblem)
+	app.Post("/api/signup", signup)
+	app.Post("/api/login", login)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -79,26 +97,53 @@ func main() {
 }
 
 func getProblems(c *fiber.Ctx) error {
-	var problems []Problem
+	userIDValue := c.Locals("user_id")
 
-	cursor, err := collection.Find(context.Background(), bson.M{})
+	var userID primitive.ObjectID
+	var err error
 
-	if err != nil {
-		return err
+	if userIDValue == nil {
+		// No user_id found, assign guest ID
+		userID, err = getGuestUserID()
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to get guest user ID")
+		}
+	} else {
+		userIDStr, ok := userIDValue.(string)
+		if !ok {
+			return fiber.NewError(fiber.StatusInternalServerError, "User ID is not a string")
+		}
+		userID, err = primitive.ObjectIDFromHex(userIDStr)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID")
+		}
 	}
 
+	// Query using userID
+	cursor, err := collection.Find(context.Background(), bson.M{"user_id": userID})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to fetch problems")
+	}
 	defer cursor.Close(context.Background())
 
+	var problems []Problem
 	for cursor.Next(context.Background()) {
 		var problem Problem
 		if err := cursor.Decode(&problem); err != nil {
-			return err
+			return fiber.NewError(fiber.StatusInternalServerError, "Error decoding problem")
 		}
-
 		problems = append(problems, problem)
+	}
+	if err := cursor.Err(); err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Cursor error")
 	}
 
 	return c.JSON(problems)
+}
+
+func getGuestUserID() (primitive.ObjectID, error) {
+	guestIDHex := "000000000000000000000000"
+	return primitive.ObjectIDFromHex(guestIDHex)
 }
 
 func createProblem(c *fiber.Ctx) error {
@@ -108,11 +153,35 @@ func createProblem(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
 	}
 
+	userIDValue := c.Locals("user_id")
+
+	var userID primitive.ObjectID
+	var err error
+
+	if userIDValue == nil {
+		// assign guest user ID or return error
+		userID, err = getGuestUserID()
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to get guest user ID")
+		}
+	} else {
+		userIDStr, ok := userIDValue.(string)
+		if !ok {
+			return fiber.NewError(fiber.StatusInternalServerError, "User ID is not a string")
+		}
+		userID, err = primitive.ObjectIDFromHex(userIDStr)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID")
+		}
+	}
+
+	problem.UserID = userID
 	problem.ID = primitive.NewObjectID()
 	problem.CreatedTime = time.Now()
 	problem.UpdatedTime = time.Now()
+	fmt.Println("UserID from locals:", userIDValue)
 
-	_, err := collection.InsertOne(context.Background(), problem)
+	_, err = collection.InsertOne(context.Background(), problem)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Failed to insert problem")
 	}
@@ -128,19 +197,41 @@ func updateProblem(c *fiber.Ctx) error {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid id format")
 	}
 
+	userIDValue := c.Locals("user_id")
+	var userID primitive.ObjectID
+	if userIDValue == nil {
+		userID, err = getGuestUserID()
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to get guest user ID")
+		}
+	} else {
+		userIDStr, ok := userIDValue.(string)
+		if !ok {
+			return fiber.NewError(fiber.StatusInternalServerError, "User ID is not a string")
+		}
+		userID, err = primitive.ObjectIDFromHex(userIDStr)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID")
+		}
+	}
+
 	var updateData bson.M
 	if err := c.BodyParser(&updateData); err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid update data")
 	}
 
-	updateData["updated_time"] = time.Now()
+	filter := bson.M{"_id": objID, "user_id": userID} // <- ensure ownership
+	updateData["updated_time"] = time.Now()           // update timestamp
 
-	filter := bson.M{"_id": objID}
 	update := bson.M{"$set": updateData}
 
-	_, err = collection.UpdateOne(context.Background(), filter, update)
+	result, err := collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Update failed")
+	}
+
+	if result.MatchedCount == 0 {
+		return fiber.NewError(fiber.StatusForbidden, "No problem found or you don't have permission to update")
 	}
 
 	return c.SendStatus(fiber.StatusOK)
@@ -149,145 +240,141 @@ func updateProblem(c *fiber.Ctx) error {
 func deleteProblem(c *fiber.Ctx) error {
 	idParam := c.Params("id")
 
-	// Convert string id to ObjectID
 	objID, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
 		return fiber.NewError(fiber.StatusBadRequest, "Invalid id format")
 	}
 
-	filter := bson.M{"_id": objID}
+	userIDValue := c.Locals("user_id")
+	var userID primitive.ObjectID
+	if userIDValue == nil {
+		userID, err = getGuestUserID()
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Failed to get guest user ID")
+		}
+	} else {
+		userIDStr, ok := userIDValue.(string)
+		if !ok {
+			return fiber.NewError(fiber.StatusInternalServerError, "User ID is not a string")
+		}
+		userID, err = primitive.ObjectIDFromHex(userIDStr)
+		if err != nil {
+			return fiber.NewError(fiber.StatusInternalServerError, "Invalid user ID")
+		}
+	}
 
-	_, err = collection.DeleteOne(context.Background(), filter)
+	filter := bson.M{"_id": objID, "user_id": userID} // <- restrict delete by owner
+
+	result, err := collection.DeleteOne(context.Background(), filter)
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Delete failed")
+	}
+
+	if result.DeletedCount == 0 {
+		return fiber.NewError(fiber.StatusForbidden, "No problem found or you don't have permission to delete")
 	}
 
 	return c.SendStatus(fiber.StatusOK)
 }
 
-// Client-sided API
+func signup(c *fiber.Ctx) error {
+	var user User
 
-// func main() {
-// 	app := fiber.New()
-// 	fmt.Println("hello")
+	body := c.Body()
+	fmt.Println("Raw body:", string(body))
+	if err := c.BodyParser(&user); err != nil {
+		fmt.Println("Error parsing body:", err)
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
+	}
 
-// 	problems := []Problem{}
+	// Check if user exists
+	count, err := collectionUser.CountDocuments(context.Background(), bson.M{"email": user.Username})
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
+	}
+	if count > 0 {
+		return fiber.NewError(fiber.StatusConflict, "User already exists")
+	}
 
-// 	//fetch problem
-// 	app.Get("/api/problems", func(c *fiber.Ctx) error {
-// 		return c.JSON(problems)
-// 	})
+	// Hash password
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Could not hash password")
+	}
+	user.Password = string(hashedPassword)
+	user.ID = primitive.NewObjectID()
 
-// 	//post problem
-// 	app.Post("/api/problems", func(c *fiber.Ctx) error {
-// 		problem := &Problem{}
+	_, err = collectionUser.InsertOne(context.Background(), user)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to create user")
+	}
 
-// 		if err := c.BodyParser(problem); err != nil {
-// 			return err
-// 		}
+	return c.SendStatus(fiber.StatusCreated)
+}
 
-// 		if problem.Title == "" {
-// 			return c.Status(400).JSON(fiber.Map{"error": "Problem Title is required!"})
-// 		}
+func login(c *fiber.Ctx) error {
+	var input User
+	if err := c.BodyParser(&input); err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "Invalid request body")
+	}
 
-// 		problem.ID = len(problems) + 1
-// 		problem.CreatedTime = time.Now()
-// 		problem.UpdatedTime = time.Now()
-// 		problems = append(problems, *problem)
+	var user User
+	err := collectionUser.FindOne(context.Background(), bson.M{"username": input.Username}).Decode(&user)
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Invalid username or password")
+	}
 
-// 		return c.Status(201).JSON(problem)
-// 	})
+	// Check password
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password))
+	if err != nil {
+		return fiber.NewError(fiber.StatusUnauthorized, "Invalid username or password")
+	}
 
-// 	//update field
-// 	app.Patch("/api/problems/:id", func(c *fiber.Ctx) error {
-// 		id, err := c.ParamsInt("id")
-// 		if err != nil || id <= 0 {
-// 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
-// 		}
+	// Create JWT token
+	claims := jwt.MapClaims{
+		"user_id": user.ID.Hex(),
+		"exp":     time.Now().Add(time.Hour * 72).Unix(), // Token expiry
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString(jwtSecret)
+	if err != nil {
+		return fiber.NewError(fiber.StatusInternalServerError, "Failed to create token")
+	}
 
-// 		var updates map[string]interface{}
-// 		if err := c.BodyParser(&updates); err != nil {
-// 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
-// 		}
+	return c.JSON(fiber.Map{
+		"token": tokenStr,
+	})
+}
 
-// 		for i, p := range problems {
-// 			if p.ID == id {
-// 				if v, ok := updates["title"].(string); ok {
-// 					problems[i].Title = v
-// 				}
-// 				if v, ok := updates["lc_number"].(float64); ok {
-// 					problems[i].LCNumber = int(v)
-// 				}
-// 				if v, ok := updates["tags"].([]interface{}); ok {
-// 					var tags []string
-// 					for _, tag := range v {
-// 						if str, ok := tag.(string); ok {
-// 							tags = append(tags, str)
-// 						}
-// 					}
-// 					problems[i].Tags = tags
-// 				}
-// 				if v, ok := updates["difficulty"].(string); ok {
-// 					problems[i].Difficulty = v
-// 				}
-// 				if v, ok := updates["solution"].(string); ok {
-// 					problems[i].Solution = v
-// 				}
-// 				if v, ok := updates["notes"].(string); ok {
-// 					problems[i].Notes = v
-// 				}
-// 				if v, ok := updates["completed"].(bool); ok {
-// 					problems[i].Completed = v
-// 				}
-// 				// Update updated time
-// 				problems[i].UpdatedTime = time.Now()
+func jwtMiddleware(c *fiber.Ctx) error {
+	authHeader := c.Get("Authorization")
+	if authHeader == "" || !strings.HasPrefix(authHeader, "Bearer ") {
+		return fiber.ErrUnauthorized
+	}
 
-// 				return c.JSON(problems[i])
-// 			}
-// 		}
+	tokenStr := strings.TrimPrefix(authHeader, "Bearer ")
 
-// 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Problem not found"})
-// 	})
+	token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
+		return jwtSecret, nil
+	})
 
-// 	//update problem
-// 	app.Put("/api/problems/:id", func(c *fiber.Ctx) error {
-// 		id, err := c.ParamsInt("id")
-// 		if err != nil || id <= 0 {
-// 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
-// 		}
+	if err != nil || !token.Valid {
+		return fiber.ErrUnauthorized
+	}
 
-// 		problem := new(Problem)
-// 		if err := c.BodyParser(problem); err != nil {
-// 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
-// 		}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return fiber.ErrUnauthorized
+	}
 
-// 		for i, p := range problems {
-// 			if p.ID == id {
-// 				problem.ID = id
-// 				problem.CreatedTime = p.CreatedTime
-// 				problem.UpdatedTime = time.Now()
-// 				problems[i] = *problem
-// 				return c.JSON(problem)
-// 			}
-// 		}
+	userID, ok := claims["user_id"].(string)
+	if !ok {
+		return fiber.ErrUnauthorized
+	}
 
-// 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Problem not found"})
-// 	})
-
-// 	//delete problem
-// 	app.Delete("/api/problems/:id", func(c *fiber.Ctx) error {
-// 		id, err := c.ParamsInt("id")
-// 		if err != nil || id <= 0 {
-// 			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid ID"})
-// 		}
-// 		for i, p := range problems {
-// 			if p.ID == id {
-// 				problems = append(problems[:i], problems[i+1:]...)
-// 				return c.SendStatus(fiber.StatusNoContent)
-// 			}
-// 		}
-// 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Problem not found"})
-// 	})
-
-// 	log.Fatal(app.Listen(":4000"))
-// }
+	c.Locals("user_id", userID)
+	return c.Next()
+}

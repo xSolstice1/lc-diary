@@ -1,5 +1,6 @@
 export interface Problem {
   id: string;
+  user_id: string;
   lcnumber: string;
   title: string;
   tags: string[];

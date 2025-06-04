@@ -71,7 +71,7 @@ export default function Home() {
         headers: getAuthHeaders(),
       });
 
-      if (!res.ok) throw new Error(`Error: ${res.statusText}`);
+      if (!res.ok) throw new Error(`Error: ${res.statusText}, please sign in or create an account!`);
 
       const data: Problem[] = await res.json();
 
@@ -131,7 +131,7 @@ export default function Home() {
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Problem save failed.");
+      if (!res.ok) throw new Error("Please sign in or create an account first!");
       setShowForm(false);
       setEditing(null);
       fetchProblems();

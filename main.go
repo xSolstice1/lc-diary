@@ -288,7 +288,7 @@ func signup(c *fiber.Ctx) error {
 	}
 
 	// Check if user exists
-	count, err := collectionUser.CountDocuments(context.Background(), bson.M{"email": user.Username})
+	count, err := collectionUser.CountDocuments(context.Background(), bson.M{"username": user.Username})
 	if err != nil {
 		return fiber.NewError(fiber.StatusInternalServerError, "Database error")
 	}

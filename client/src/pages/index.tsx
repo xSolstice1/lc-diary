@@ -205,7 +205,7 @@ export default function Home() {
               </CheckboxGroup>
             </Box>
 
-            {(searchTerm || selectedTags.length || selectedDifficulties.length) > 0 && (
+            {(!!searchTerm || selectedTags.length > 0 || selectedDifficulties.length > 0) && (
               <Button mt={3} size="sm" variant="outline" onClick={handleResetFilters}>
                 Reset Filters
               </Button>

@@ -26,7 +26,7 @@ export default function Signup({ onClose }: SignupProps) {
         body: JSON.stringify({ username, password }),
       });
 
-      if (!res.ok) throw new Error("Signup failed");
+      if (!res.ok) throw new Error("Signup failed, user already exists!");
 
       setSuccess("Signup successful! You can now log in. Closing in 3 seconds...");
 

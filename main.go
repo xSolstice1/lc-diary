@@ -74,7 +74,7 @@ func main() {
 	app := fiber.New()
 
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "http://localhost:5173,https://lc-diary-production.up.railway.app",
+		AllowOrigins: "http://localhost:5173,https://lc-diary-production.up.railway.app,https://lc-diary.vercel.app/",
 		AllowMethods: "GET,POST,PATCH,DELETE,OPTIONS",
 		AllowHeaders: "Content-Type, Accept, Authorization",
 	}))

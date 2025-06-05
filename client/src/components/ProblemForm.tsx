@@ -17,7 +17,7 @@ interface Props {
     id?: string
   ) => void;
   initialData?: Problem;
-  onCancel: () => Promise<void>;
+  onCancel: () => void;
 }
 
 export default function ProblemForm({

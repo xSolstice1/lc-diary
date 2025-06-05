@@ -13,7 +13,7 @@ import type { Problem } from "../types/Problems";
 
 interface Props {
   onSubmit: (
-    data: Omit<Problem, "id" | "created_time" | "updated_time">,
+    data: Omit<Problem, "id" | "created_time" | "updated_time" | "user_id">,
     id?: string
   ) => void;
   initialData?: Problem;

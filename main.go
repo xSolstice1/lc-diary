@@ -46,9 +46,8 @@ var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
 const GuestUserIDHex = "000000000000000000000000"
 
 func main() {
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Fatal("Error loading env file!", err)
+	if err := godotenv.Load(".env"); err != nil {
+		log.Println("No .env file found, using environment variables")
 	}
 
 	MONGODB_URI := os.Getenv("MONGODB_URI")

@@ -120,7 +120,7 @@ export default function Home() {
 
   // Submit new/edit problem
   const handleSubmit = async (
-    data: Omit<Problem, "id" | "created_time" | "updated_time">,
+    data: Omit<Problem, "id" | "created_time" | "updated_time" | "user_id">,
     id?: string
   ) => {
     try {

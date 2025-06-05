@@ -49,21 +49,16 @@ export default function ProblemForm({
     }
   }, [initialData]);
 
-  const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >
-  ) => {
-    const { name, value } = e.target;
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const { name, value } = e.target;
 
-    if (name === "completed") {
-      if (e.target instanceof HTMLInputElement) {
-        setFormData((prev) => ({ ...prev, completed: e.target.checked }));
-      }
-    } else {
-      setFormData((prev) => ({ ...prev, [name]: value }));
-    }
-  };
+  if (name === "completed") {
+    const target = e.target as HTMLInputElement;
+    setFormData((prev) => ({ ...prev, completed: target.checked }));
+  } else {
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  }
+};
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

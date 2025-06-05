@@ -1,4 +1,4 @@
-import { Button, Stack } from "@chakra-ui/react";
+import { Stack } from "@chakra-ui/react";
 import Home from "./pages";
 import Footer from "./components/Footer";
 

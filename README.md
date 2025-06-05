@@ -20,6 +20,12 @@ Track your problem-solving progress, organize problems by tags and difficulty, a
 
 ---
 
+## Live Demo
+
+Access the live demo here [https://lc-diary.vercel.app/](https://lc-diary.vercel.app/)
+
+---
+
 ## Tech Stack
 
 - React

@@ -9,6 +9,8 @@ Track your problem-solving progress, organize problems by tags and difficulty, a
 
 ![Screenshot 5](assets/ss5.png)
 
+![Screenshot 6](assets/ss6.png)
+
 ---
 
 ## Features

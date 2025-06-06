@@ -1,5 +1,5 @@
 import { Box, Flex, Text, Link, Icon } from "@chakra-ui/react";
-import { FaGithub } from "react-icons/fa";
+import { FaCodeBranch, FaGithub } from "react-icons/fa";
 
 export default function Footer() {
   return (
@@ -15,7 +15,12 @@ export default function Footer() {
               <Text>GitHub</Text>
             </Flex>
           </Link>
-          {/* Add more links here if you like (e.g., LinkedIn) */}
+          <Link href="https://github.com/xSolstice1/lc-diary" isExternal>
+            <Flex align="center" gap={1}>
+              <Icon as={FaCodeBranch} />
+              <Text>Project Repository</Text>
+            </Flex>
+          </Link>
         </Flex>
       </Flex>
     </Box>

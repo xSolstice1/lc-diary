@@ -86,6 +86,9 @@ func main() {
 	problemsGroup.Delete("/:id", deleteProblem)
 	app.Post("/api/signup", signup)
 	app.Post("/api/login", login)
+	app.Get("/health", func(c *fiber.Ctx) error {
+		return c.SendString("OK")
+	})
 
 	port := os.Getenv("PORT")
 	if port == "" {

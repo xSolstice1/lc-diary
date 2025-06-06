@@ -30,6 +30,7 @@ import {
   Flex,
   HStack,
 } from "@chakra-ui/react";
+import ActivityMap from "../components/activtityMap";
 import { FaSearch, FaChartBar } from "react-icons/fa";
 import Navbar from "../components/Navbar";
 import ProblemCard from "../components/ProblemCard";
@@ -253,6 +254,13 @@ export default function Home() {
                 <Text fontSize="2xl" fontWeight="bold">
                   {totalSolved}
                 </Text>
+              </Box>
+
+              <Box mb={6}>
+                <Heading size="md" mb={2}>
+                  Activity Map
+                </Heading>
+                <ActivityMap problems={problems}/>
               </Box>
 
               <Box mb={6}>

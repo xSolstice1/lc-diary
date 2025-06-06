@@ -29,6 +29,7 @@ const ActivityMap: React.FC<ActivityMapProps> = ({ problems }) => {
     const map: Record<string, number> = {};
     problems.forEach((p) => {
       if (!p.created_time) return;
+      if (!p.completed) return;
       const dateStr = format(new Date(p.created_time), "yyyy-MM-dd");
       map[dateStr] = (map[dateStr] || 0) + 1;
     });

@@ -22,6 +22,7 @@ import ProblemCard from "../components/ProblemCard";
 import ProblemForm from "../components/ProblemForm";
 import type { Problem } from "../types/Problems";
 import { AuthContext } from "../auth/AuthContext";
+import { exportToCSV } from "../utils/ExportToCSV";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const DIFFICULTIES = ["Easy", "Medium", "Hard"];
@@ -37,7 +38,9 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>([]);
+  const [selectedDifficulties, setSelectedDifficulties] = useState<string[]>(
+    []
+  );
   const [availableTags, setAvailableTags] = useState<string[]>([]);
 
   const getAuthHeaders = () => {
@@ -71,7 +74,10 @@ export default function Home() {
         headers: getAuthHeaders(),
       });
 
-      if (!res.ok) throw new Error(`Error: ${res.statusText}, please sign in or create an account!`);
+      if (!res.ok)
+        throw new Error(
+          `Error: ${res.statusText}, please sign in or create an account!`
+        );
 
       const data: Problem[] = await res.json();
 
@@ -131,7 +137,8 @@ export default function Home() {
         headers: getAuthHeaders(),
         body: JSON.stringify(data),
       });
-      if (!res.ok) throw new Error("Please sign in or create an account first!");
+      if (!res.ok)
+        throw new Error("Please sign in or create an account first!");
       setShowForm(false);
       setEditing(null);
       fetchProblems();
@@ -277,6 +284,19 @@ export default function Home() {
             {filteredProblems.length === 0 && (
               <Text>No problems match the selected filters.</Text>
             )}
+            <Button
+              mt={3}
+              size="sm"
+              colorScheme="blue"
+              onClick={() => {
+                const filteredData = filteredProblems.map(
+                  ({ id,user_id, ...rest }) => rest
+                );
+                exportToCSV(filteredData, "problems.csv");
+              }}
+            >
+              Export to CSV
+            </Button>
           </Stack>
         )}
       </Container>

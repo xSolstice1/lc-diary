@@ -15,6 +15,9 @@ import {
   Divider,
   Wrap,
   WrapItem,
+  useDisclosure,
+  Collapse,
+  IconButton,
 } from "@chakra-ui/react";
 import { FaSearch } from "react-icons/fa";
 import Navbar from "../components/Navbar";
@@ -23,6 +26,7 @@ import ProblemForm from "../components/ProblemForm";
 import type { Problem } from "../types/Problems";
 import { AuthContext } from "../auth/AuthContext";
 import { exportToCSV } from "../utils/ExportToCSV";
+import { ChevronDownIcon, ChevronRightIcon } from "@chakra-ui/icons";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL;
 const DIFFICULTIES = ["Easy", "Medium", "Hard"];
@@ -55,6 +59,11 @@ export default function Home() {
     setSelectedTags([]);
     setSelectedDifficulties([]);
   };
+
+  const { isOpen: isTagsOpen, onToggle: toggleTags } = useDisclosure();
+
+  const { isOpen: isDifficultiesOpen, onToggle: toggleDifficulties } =
+    useDisclosure();
 
   useEffect(() => {
     if (token) {
@@ -201,16 +210,34 @@ export default function Home() {
               />
             </InputGroup>
 
-            <Box mt={4}>
-              <Heading size="sm" mb={2}>
-                Filter by Tags
-              </Heading>
+            <Box
+              mt={4}
+              _hover={{ bg: "gray.100", borderRadius: "md" }}
+              px={2}
+              py={1}
+              cursor="pointer"
+              onClick={toggleTags}
+            >
+              <Stack direction="row" align="center">
+                <Heading size="sm" mb={0}>
+                  Filter by Tags
+                </Heading>
+                <IconButton
+                  size="sm"
+                  icon={isTagsOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                  aria-label="Toggle Tags Filter"
+                  variant="ghost"
+                />
+              </Stack>
+            </Box>
+
+            <Collapse in={isTagsOpen} animateOpacity>
               <CheckboxGroup
                 colorScheme="teal"
                 value={selectedTags}
                 onChange={(vals) => setSelectedTags(vals as string[])}
               >
-                <Wrap>
+                <Wrap mt={2}>
                   {availableTags.map((tag) => (
                     <WrapItem key={tag}>
                       <Checkbox value={tag}>{tag}</Checkbox>
@@ -218,18 +245,42 @@ export default function Home() {
                   ))}
                 </Wrap>
               </CheckboxGroup>
+            </Collapse>
+
+            <Box
+              mt={4}
+              _hover={{ bg: "gray.100", borderRadius: "md" }}
+              px={2}
+              py={1}
+              cursor="pointer"
+              onClick={toggleDifficulties}
+            >
+              <Stack direction="row" align="center">
+                <Heading size="sm" mb={0}>
+                  Filter by Difficulty
+                </Heading>
+                <IconButton
+                  size="sm"
+                  icon={
+                    isDifficultiesOpen ? (
+                      <ChevronDownIcon />
+                    ) : (
+                      <ChevronRightIcon />
+                    )
+                  }
+                  aria-label="Toggle Difficulty Filter"
+                  variant="ghost"
+                />
+              </Stack>
             </Box>
 
-            <Box mt={4}>
-              <Heading size="sm" mb={2}>
-                Filter by Difficulty
-              </Heading>
+            <Collapse in={isDifficultiesOpen} animateOpacity>
               <CheckboxGroup
                 colorScheme="orange"
                 value={selectedDifficulties}
                 onChange={(vals) => setSelectedDifficulties(vals as string[])}
               >
-                <Stack direction="row">
+                <Stack direction="row" mt={2}>
                   {DIFFICULTIES.map((d) => (
                     <Checkbox key={d} value={d}>
                       {d}
@@ -237,7 +288,7 @@ export default function Home() {
                   ))}
                 </Stack>
               </CheckboxGroup>
-            </Box>
+            </Collapse>
 
             {(!!searchTerm ||
               selectedTags.length > 0 ||
@@ -290,7 +341,7 @@ export default function Home() {
               colorScheme="blue"
               onClick={() => {
                 const filteredData = filteredProblems.map(
-                  ({ id,user_id, ...rest }) => rest
+                  ({ id, user_id, ...rest }) => rest
                 );
                 exportToCSV(filteredData, "problems.csv");
               }}

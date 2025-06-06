@@ -1,4 +1,4 @@
-import { useEffect, useState, useContext } from "react";
+import { useEffect, useState, useContext, useMemo } from "react";
 import {
   Box,
   Stack,
@@ -18,8 +18,19 @@ import {
   useDisclosure,
   Collapse,
   IconButton,
+  Drawer,
+  DrawerBody,
+  DrawerHeader,
+  DrawerOverlay,
+  DrawerContent,
+  DrawerCloseButton,
+  Tag,
+  TagLabel,
+  TagRightIcon,
+  Flex,
+  HStack,
 } from "@chakra-ui/react";
-import { FaSearch } from "react-icons/fa";
+import { FaSearch, FaChartBar } from "react-icons/fa";
 import Navbar from "../components/Navbar";
 import ProblemCard from "../components/ProblemCard";
 import ProblemForm from "../components/ProblemForm";
@@ -47,6 +58,15 @@ export default function Home() {
   );
   const [availableTags, setAvailableTags] = useState<string[]>([]);
 
+  const { isOpen: isTagsOpen, onToggle: toggleTags } = useDisclosure();
+  const { isOpen: isDifficultiesOpen, onToggle: toggleDifficulties } =
+    useDisclosure();
+  const {
+    isOpen: isStatsOpen,
+    onOpen: onStatsOpen,
+    onClose: onStatsClose,
+  } = useDisclosure();
+
   const getAuthHeaders = () => {
     return {
       "Content-Type": "application/json",
@@ -59,11 +79,6 @@ export default function Home() {
     setSelectedTags([]);
     setSelectedDifficulties([]);
   };
-
-  const { isOpen: isTagsOpen, onToggle: toggleTags } = useDisclosure();
-
-  const { isOpen: isDifficultiesOpen, onToggle: toggleDifficulties } =
-    useDisclosure();
 
   useEffect(() => {
     if (token) {
@@ -94,6 +109,7 @@ export default function Home() {
       setProblems(validProblems);
       setFilteredProblems(validProblems);
 
+      // Extract unique tags
       const tagSet = new Set<string>();
       validProblems.forEach((problem) =>
         problem.tags?.forEach((tag) => tagSet.add(tag))
@@ -163,26 +179,115 @@ export default function Home() {
         method: "DELETE",
         headers: getAuthHeaders(),
       });
-      if (!res.ok) throw new Error(`Delete failed`);
+      if (!res.ok) throw new Error("Delete failed");
       fetchProblems();
     } catch (err: any) {
       alert(err.message || "Unknown error");
     }
   };
 
+  // Stats calculations
+  const totalSolved = problems.filter(
+    (problem) => problem.completed === true
+  ).length;
+
+  const difficultyCount = useMemo(() => {
+    const counts: Record<string, number> = { Easy: 0, Medium: 0, Hard: 0 };
+    problems.forEach((p) => {
+      if (p.difficulty && counts[p.difficulty] !== undefined) {
+        counts[p.difficulty]++;
+      }
+    });
+    return counts;
+  }, [problems]);
+
+  const mostUsedTags = useMemo(() => {
+    const tagFrequency: Record<string, number> = {};
+    problems.forEach((p) => {
+      p.tags?.forEach((tag) => {
+        tagFrequency[tag] = (tagFrequency[tag] || 0) + 1;
+      });
+    });
+    // Sort tags by frequency desc
+    return Object.entries(tagFrequency)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10);
+  }, [problems]);
+
   return (
     <Stack spacing={6}>
       <Navbar />
       <Container maxW="container.md" py={6}>
-        <Button
-          colorScheme="teal"
-          onClick={() => {
-            setShowForm(true);
-            setEditing(null);
-          }}
-        >
-          Add New Problem
-        </Button>
+        <Flex justify="space-between" align="center" mb={4}>
+          <HStack spacing={2} mt={4}>
+            <Button
+              colorScheme="teal"
+              onClick={() => {
+                setShowForm(true);
+                setEditing(null);
+              }}
+            >
+              Add New Problem
+            </Button>
+            <Button
+              leftIcon={<FaChartBar />}
+              colorScheme="blue"
+              onClick={onStatsOpen}
+            >
+              Stats Dashboard
+            </Button>
+          </HStack>
+        </Flex>
+
+        {/* Stats Drawer */}
+        <Drawer isOpen={isStatsOpen} placement="right" onClose={onStatsClose}>
+          <DrawerOverlay />
+          <DrawerContent>
+            <DrawerCloseButton />
+            <DrawerHeader>Stats Dashboard</DrawerHeader>
+            <DrawerBody>
+              <Box mb={6}>
+                <Heading size="md" mb={2}>
+                  Problems Solved
+                </Heading>
+                <Text fontSize="2xl" fontWeight="bold">
+                  {totalSolved}
+                </Text>
+              </Box>
+
+              <Box mb={6}>
+                <Heading size="md" mb={2}>
+                  Difficulty Breakdown
+                </Heading>
+                <Stack spacing={1}>
+                  {DIFFICULTIES.map((diff) => (
+                    <Text key={diff}>
+                      {diff}: {difficultyCount[diff] || 0}
+                    </Text>
+                  ))}
+                </Stack>
+              </Box>
+
+              <Box>
+                <Heading size="md" mb={2}>
+                  Most Used Tags
+                </Heading>
+                <Wrap>
+                  {mostUsedTags.length === 0 && <Text>No tags available</Text>}
+                  {mostUsedTags.map(([tag, count]) => (
+                    <Tag key={tag} size="md" colorScheme="teal" m={1}>
+                      <TagLabel>{tag}</TagLabel>
+                      <TagRightIcon />
+                      <Text ml={1} fontSize="sm">
+                        ({count})
+                      </Text>
+                    </Tag>
+                  ))}
+                </Wrap>
+              </Box>
+            </DrawerBody>
+          </DrawerContent>
+        </Drawer>
 
         {showForm && (
           <Box mt={4}>
@@ -329,27 +434,25 @@ export default function Home() {
                   setEditing(p);
                   setShowForm(true);
                 }}
-                onDelete={handleDelete}
+                onDelete={() => handleDelete(problem.id)}
               />
             ))}
             {filteredProblems.length === 0 && (
-              <Text>No problems match the selected filters.</Text>
+              <Text textAlign="center" color="gray.500" mt={6}>
+                No problems found.
+              </Text>
             )}
-            <Button
-              mt={3}
-              size="sm"
-              colorScheme="blue"
-              onClick={() => {
-                const filteredData = filteredProblems.map(
-                  ({ id, user_id, ...rest }) => rest
-                );
-                exportToCSV(filteredData, "problems.csv");
-              }}
-            >
-              Export to CSV
-            </Button>
           </Stack>
         )}
+
+        <Button
+          mt={8}
+          colorScheme="green"
+          onClick={() => exportToCSV(problems)}
+          isDisabled={problems.length === 0}
+        >
+          Export All Problems to CSV
+        </Button>
       </Container>
     </Stack>
   );

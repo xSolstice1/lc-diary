@@ -18,6 +18,7 @@ Track your problem-solving progress, organize problems by tags and difficulty, a
 - **Filterable problem list** with tags and difficulty badges.
 - **Mark problems as completed** with a clear visual indicator.
 - **Expandable sections** for clean and readable solutions and notes, styled like a code editor.
+- **Statboard** to view your overall LeetCode journey including completion, count by difficulty and most used tags!
 - Responsive and intuitive UI built with [Chakra UI](https://chakra-ui.com/).
 
 ---

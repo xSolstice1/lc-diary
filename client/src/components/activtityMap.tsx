@@ -7,7 +7,12 @@ interface ActivityMapProps {
   problems: Problem[];
 }
 
-const getColor = (count: number) => {
+interface Contribution {
+  date: string;
+  count: number;
+}
+
+const getColor = (count: number): string => {
   if (count === 0) return "gray.100";
   if (count < 2) return "green.100";
   if (count < 4) return "green.300";
@@ -16,7 +21,7 @@ const getColor = (count: number) => {
 };
 
 const ActivityMap: React.FC<ActivityMapProps> = ({ problems }) => {
-  const contributionData = useMemo(() => {
+  const contributionData: Contribution[] = useMemo(() => {
     const today = new Date();
     const oneYearAgo = subDays(today, 364);
     const days = eachDayOfInterval({ start: oneYearAgo, end: today });
@@ -28,7 +33,7 @@ const ActivityMap: React.FC<ActivityMapProps> = ({ problems }) => {
       map[dateStr] = (map[dateStr] || 0) + 1;
     });
 
-    return days.map((day) => {
+    return days.map((day: Date): Contribution => {
       const dateStr = format(day, "yyyy-MM-dd");
       return {
         date: dateStr,
@@ -39,7 +44,7 @@ const ActivityMap: React.FC<ActivityMapProps> = ({ problems }) => {
 
   return (
     <Flex wrap="wrap" gap="2px" maxW="300px">
-      {contributionData.map(({ date, count }) => (
+      {contributionData.map(({ date, count }: Contribution) => (
         <Tooltip key={date} label={`${count} problem${count !== 1 ? "s" : ""} on ${date}`}>
           <Box
             width="12px"
